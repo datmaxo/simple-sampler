@@ -2,7 +2,7 @@
 A simple app that stores the last 10 seconds of computer audio via WASAPI, and saves the recording on a keypress. 
 Designed to make gathering music samples from the internet easy.
 
-CURRENTLY A VERY SIMPLE SINGLE PYTHON FILE - REQUIRES 'PyAudioPatch' & 'keyboard' LIBRARIES
+*CURRENTLY A VERY SIMPLE SINGLE PYTHON FILE - REQUIRES 'PyAudioPatch' & 'keyboard' LIBRARIES*\
 Will sort out dependencies when the app is more fleshed out.
 
 ### How to use:
