@@ -1,0 +1,20 @@
+Hello!
+
+This is a small app I made to help record my PC's audio, for the purpose of quickly & passively
+gathering samples and clips, editing them down, and exporting them.
+
+While this was initially designed to act as a background process, a simple UI can optionally be 
+used whilst recording for ease of operation.
+Please check the other tabs to familiarise yourself with the controls, and select your recording 
+options. When you're ready you can press the button below (or 'return') to start!
+
+Happy recording :)
+
+======================================================================
+
+CHANGE-LOG:
+
+V0.3:
+ - redesigned UI, implemented welcome page
+ - implemented ability to change keybinds for key operations
+ - added an quit function to cease passive recording

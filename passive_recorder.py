@@ -3,9 +3,9 @@ CREATION DATE: 23/06/23
 =======================
 An simple implementation of the core program; passively records the last 10s of audio,
 and saves it to a file when the 'a' key is pressed.
-Needs a lot of tweaking to become a full app but the core works well!
-
 Switching to PyAudioPatch and re-jigging the code a little resulted in much cleaner audio!
+
+TODO: add in the ability to kill the program lol
 """
 
 import wave
@@ -19,6 +19,7 @@ CHUNK = 4 #a value of '2' was giving poor results but any 2^n, n > 1 value works
 FORMAT = pyaudio.paInt16
 CHANNELS = 1 if sys.platform == 'darwin' else 2
 RECORD_SECONDS = 10
+stop = False
 
 #rudimentary method of communicating between the two threads
 #not bothering with any race condition protection but should be okay??
@@ -30,8 +31,9 @@ data = []
     
 """The main recording function; captures audio and triggers writing process when key is pressed"""
 def passive_recorder (data = [], rec_args = [], num = 0):
-    global save
+    global save, stop
     p = pyaudio.PyAudio()
+    printed_note = False
 
     #try and load WASAPI, exit if it doesn't exist (sorry Mac OS)
     default_speakers = ""
@@ -52,7 +54,7 @@ def passive_recorder (data = [], rec_args = [], num = 0):
                     input=True,
                     input_device_index=default_speakers["index"])
 
-    while True:
+    while not stop:
         #record audio, only keeping the last x seconds heard
         data.append(stream.read(CHUNK))
         if len(data) > rec_args['RATE'] / rec_args['CHUNK'] * rec_args['RECORD_SECONDS']:
@@ -85,7 +87,8 @@ def write_file (p, data, rec_args, name):
 
 #keyboard thread main function; listens for 'a' press
 def listener():
-    while True:
+    global stop
+    while not stop:
         keyboard.read_key()
 
 #on 'a' press, trigger write_file in rec_thread.
@@ -93,16 +96,25 @@ def save_audio():
     global save
     save = True
 
+def kill_process():
+    global stop
+    stop = True
+
 #the function which triggers the recording process from the UI script
 def start_recording(rec_args, binds):
     keyboard.add_hotkey(binds['save'], save_audio)
+    keyboard.add_hotkey(binds['exit'], kill_process)
 
     rec_thread = Thread(target=passive_recorder, args=[[], rec_args, 1])
     rec_thread.start()
     kb_thread = Thread(target=listener, args=[])
-    kb_thread.run()
+    kb_thread.start()
 
-    kb_thread.join() #will run indefinitely
+    #will run until kill_process is called
+    kb_thread.join()
+    rec_thread.join()
+    print('lol cya')
+    exit()
 
 
 
