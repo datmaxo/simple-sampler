@@ -14,6 +14,13 @@ Happy recording :)
 
 CHANGE-LOG:
 
+V0.4:
+ - introduced editor window:
+   * view recorded wave-forms with scroll and zoom controls
+   * set the start & end points with the mouse
+   * play the selected section of the recording
+ - reworked passive recorder script
+
 V0.3:
  - redesigned UI, implemented welcome page
  - implemented ability to change keybinds for key operations

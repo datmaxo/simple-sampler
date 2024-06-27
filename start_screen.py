@@ -5,9 +5,7 @@ It is kinda ugly though!
 May try PyQt6 in another branch.
 
 TODO:
- - Add option to rebind keys
  - Add option to change self.rec_args
- - Save options to some file (json/txt), load them on launch, save automatically altered
 """
 
 import tkinter as tk
@@ -15,7 +13,6 @@ from tkinter import ttk
 from functools import partial
 import passive_recorder as pr
 import keyboard
-from threading import Thread
 
 import pyaudiowpatch as pyaudio #allows WASAPI
 import sys
@@ -32,7 +29,7 @@ class startUI:
 
         #key binds which are active in the main recorder
         self.binds = {'save': 'a', 'exit': 'ctrl+shift+esc'} #default binds
-        self.rebinding = False #are we rebinding a command right now?
+        self.rebind = False #are we rebinding a command right now?
         with open('data/keybinds.json', 'r+') as keyfile:
             kb = keyfile.read()
             if len(kb) == 0:
@@ -87,8 +84,9 @@ class startUI:
 
     #close this window, begin main audio sequence
     def close (self, _=''):
-        self.root.destroy()
-        pr.start_recording(self.rec_args, self.binds)
+        if self.rebind == False:
+            self.root.destroy()
+            pr.start_recording(self.rec_args, self.binds)
 
     def loadIntroFrame (self):
         with open("data/intro-text.txt", "r+") as info:
@@ -154,6 +152,7 @@ class startUI:
         for x in self.key_rebind_buttons.keys():
             if x != key:
                 self.key_rebind_buttons[x].configure(state='disabled')
+        self.start_button.configure(state='disabled')
         self.key_rebind_buttons[key].configure(text='Done?', command=partial(self.saveKeyBinding,key))
         self.key_texts[key].configure(text = f'{key.upper()} : PRESS KEY(S)')
         self.root.update_idletasks()
@@ -162,19 +161,23 @@ class startUI:
             
     def saveKeyBinding (self, key):
         keyseq = set([ke.name for ke in keyboard.stop_recording() if ke.event_type == "up" and ke.name != "+"])
+        keyseq = sorted(list(keyseq), key=len)
+        keyseq.reverse()
 
-        keystr = ""
-        for k in keyseq:
-            keystr += k + '+'
-        self.binds[key] = keystr[:-1]
+        if len(keyseq) > 0:
+            keystr = ""
+            for k in keyseq:
+                keystr += k + '+'
+            self.binds[key] = keystr[:-1]
+            print(keystr[:-1])
+
+            with open('data/keybinds.json', 'w+') as keyfile:
+                keyfile.write(json.dumps(self.binds))
+                keyfile.close() #not necessary i dont think lol
+
         self.key_texts[key].configure(text = f'{key.upper()} : {self.binds[key]}')
-        print(keystr[:-1])
-
-        with open('data/keybinds.json', 'w+') as keyfile:
-            keyfile.write(json.dumps(self.binds))
-            keyfile.close() #not necessary i dont think lol
-
         self.key_rebind_buttons[key].configure(text='Rebind', command=partial(self.rebindKey,key))
+        self.start_button.configure(state='normal')
         for x in self.key_rebind_buttons.keys():
             self.key_rebind_buttons[x].configure(state='normal')
 

@@ -5,7 +5,7 @@ An simple implementation of the core program; passively records the last 10s of 
 and saves it to a file when the 'a' key is pressed.
 Switching to PyAudioPatch and re-jigging the code a little resulted in much cleaner audio!
 
-TODO: add in the ability to kill the program lol
+TODO: now i'm using OOP for the UI scripts this should probably be made OOP as well
 """
 
 import wave
@@ -13,77 +13,70 @@ import sys
 import keyboard
 from threading import Thread
 import pyaudiowpatch as pyaudio #allows WASAPI
+import wave_editor
 
-"""These are to be set before recording; pass into functions as a dict 'args'"""
-CHUNK = 4 #a value of '2' was giving poor results but any 2^n, n > 1 value works well! think small n is best
-FORMAT = pyaudio.paInt16
-CHANNELS = 1 if sys.platform == 'darwin' else 2
-RECORD_SECONDS = 10
-stop = False
+class Recorder:
+    def __init__ (self, rec_args):
+        self.p = pyaudio.PyAudio()
+        self.rec_args = rec_args
+        self.data = []
+        
+        self.save = False
+        self.stop = False
+        self.max_size = self.rec_args['RATE'] / self.rec_args['CHUNK'] * self.rec_args['RECORD_SECONDS']
 
-#rudimentary method of communicating between the two threads
-#not bothering with any race condition protection but should be okay??
-#while both can write, rec_thread is the only reader, and each thread can only write 0 / 1 respectfully
-save = False
+        recThread = Thread(target = self.start_recording, args=[])
+        keyThread = Thread(target = self.listener, args=[])
+        recThread.start()
+        keyThread.start()
 
-#the last 10 seconds of recorded audio
-data = []
+    def listener(self):
+        while not self.stop:
+            keyboard.read_key()
     
-"""The main recording function; captures audio and triggers writing process when key is pressed"""
-def passive_recorder (data = [], rec_args = [], num = 0):
-    global save, stop
-    p = pyaudio.PyAudio()
-    printed_note = False
+    """The main recording function; captures audio and triggers writing process when key is pressed"""
+    def start_recording (self):
+        p = pyaudio.PyAudio()
+        printed_note = False
 
-    #try and load WASAPI, exit if it doesn't exist (sorry Mac OS)
-    default_speakers = ""
-    try:
-        default_speakers = p.get_default_wasapi_loopback()
-    except OSError:
-        spinner.print("Looks like WASAPI is not available on the system. Exiting...")
-        spinner.stop()
-        exit()
+        #try and load WASAPI, exit if it doesn't exist (sorry Mac OS)
+        default_speakers = ""
+        try:
+            default_speakers = p.get_default_wasapi_loopback()
+        except OSError:
+            print("Looks like WASAPI is not available on the system. Exiting...")
+            exit()
 
-    rec_args['RATE'] = int(default_speakers["defaultSampleRate"])
-    print(f"""c: {rec_args['CHUNK']}, r: {rec_args['RATE']},
-    math: { rec_args['RATE'] / rec_args['CHUNK'] * rec_args['RECORD_SECONDS']}""")
-    
-    stream = p.open(format= rec_args['FORMAT'],
-                    channels= rec_args['CHANNELS'],
-                    rate= rec_args['RATE'],
-                    input=True,
-                    input_device_index=default_speakers["index"])
+        self.rec_args['RATE'] = int(default_speakers["defaultSampleRate"])
+        print(f"""c: {self.rec_args['CHUNK']}, r: {self.rec_args['RATE']},math: {self.max_size}""")
+        
+        stream = p.open(format= self.rec_args['FORMAT'],
+                        channels= self.rec_args['CHANNELS'],
+                        rate= self.rec_args['RATE'],
+                        input=True,
+                        input_device_index=default_speakers["index"])
 
-    while not stop:
-        #record audio, only keeping the last x seconds heard
-        data.append(stream.read(CHUNK))
-        if len(data) > rec_args['RATE'] / rec_args['CHUNK'] * rec_args['RECORD_SECONDS']:
-            data.pop(0)
+        while not self.stop:
+            #record audio, only keeping the last x seconds heard
+            self.data.append(stream.read(self.rec_args['CHUNK']))
+            if len(self.data) > self.max_size:
+                self.data.pop(0)
 
-        #if we've pressed 'a' and the buffer is 10s of audio
-        if (save == True and len(data) == rec_args['RATE'] / rec_args['CHUNK'] * rec_args['RECORD_SECONDS']):
-            #write to file in seperate thread
-            print("Writing to output.wav ...")
-            save = False
-            name = 'tmp/output(' + str(num) + ').wav'
-            write_thread = Thread(target=write_file, args=[p,data,rec_args,name])
-            write_thread.start()
-            #no join - bad practice probably!
-            print("Done!\n")
-            num += 1
+        self.data = []
 
-    #restart the recording process, using the already recorded data
-
-""" Writing thread: makes a deep copy of the current audio buffer and then saves it to a new file.
-    This setup allows for multiple clips to be saved in sequence w/ no noticable pause in recording :) """
-def write_file (p, data, rec_args, name):
-    copy = [d for d in data] #deep copy of recording so it comes out clean
-    with wave.open(name, 'wb') as wf:
-        wf.setnchannels(rec_args['CHANNELS'])
-        wf.setsampwidth(p.get_sample_size(rec_args['FORMAT']))
-        wf.setframerate(rec_args['RATE'])
-        for x in copy: wf.writeframes(x) #write data to wav
-        wf.close()
+    #this used to be a subprocess - is now called by MainEditor on the main thread :)
+    def write_file (self, num):
+        if len(self.data) == self.max_size:
+            copy = [d for d in self.data] #deep copy of recording so it comes out clean
+            with wave.open(f'tmp/output ({num}).wav', 'wb') as wf:
+                wf.setnchannels(self.rec_args['CHANNELS'])
+                wf.setsampwidth(self.p.get_sample_size(self.rec_args['FORMAT']))
+                wf.setframerate(self.rec_args['RATE'])
+                for x in copy: wf.writeframes(x) #write data to wav
+                wf.close()
+            return copy
+        return None
+        
 
 #keyboard thread main function; listens for 'a' press
 def listener():
@@ -117,7 +110,8 @@ def start_recording(rec_args, binds):
     exit()
 
 
-
+#I don't think there's a way to run this standalone anymore, R.I.P
+"""
 if __name__ == "__main__":
 
     rec_args = {'CHUNK': 4, 
@@ -135,3 +129,4 @@ if __name__ == "__main__":
     kb_thread.run()
 
     kb_thread.join() #will run indefinitely
+"""
