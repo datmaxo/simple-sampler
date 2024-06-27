@@ -6,8 +6,10 @@ Designed to make gathering music samples from the internet easy.
 Will sort out dependencies when the app is more fleshed out.
 
 ### How to use:
-With dependencies installed, simply run 'recorder_with_keypress'. 
-After at least 10 seconds of computer audio has been played, press 'a' to save the last 10 seconds as a .wav file.
+With dependencies installed, simply run 'start_screen.py'. 
+When you are ready, start the recording process with the green button or the 'enter' key.
+
+After at least 10 seconds of computer audio has been played, press the 'save' key to save the last 10 seconds as a .wav file.
 These files are located in tmp/ , as numbered output.wav files.
 These will be overwritten next time the app is opened, so move them somewhere else if you care!
 
