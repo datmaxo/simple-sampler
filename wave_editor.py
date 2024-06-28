@@ -268,4 +268,7 @@ class EditorWindow ():
             p.remove()
         self.canvas.draw()
 
+    def saveSelection (self):
+        return self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']].tobytes()
+
 #widnow = EditorWindow('tmp/output(1).wav', rec_args)

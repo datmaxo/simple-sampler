@@ -10,6 +10,7 @@ For now, we can just make a new Recorder on minimisation, and delete them on foc
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog as fd
 from functools import partial
 import keyboard
 import pyaudiowpatch as pyaudio #allows WASAPI
@@ -24,6 +25,7 @@ from threading import Thread
 """This should really be its own script but for now it can stay here"""
 class MainEditor ():
     def __init__ (self, rec_set, binds, open_immeditately = []):
+        self.p = pyaudio.PyAudio()
         self.rec_args = rec_set
         self.tabs = []
         self.tab_frames = []
@@ -34,13 +36,21 @@ class MainEditor ():
         
         #main window
         self.root = tk.Tk()
-        self.root.geometry("500x300")
+        self.root.geometry("750x300")
         self.root.title(f"Editor")
-        self.root.configure(bg='white')
+        self.root.configure(bg='white', padx=10, pady=10)
 
         #file manager
-        self.tabControl = ttk.Notebook(self.root) 
-        self.tabControl.pack(expand = True, fill = "both")
+        self.tabControl = ttk.Notebook(self.root, width=500) 
+        self.tabControl.pack(side = 'left', expand = False, fill = "y")
+
+        self.editFrame = tk.Frame(self.root, width = 250, relief='ridge', borderwidth = 3,
+                                  bg='#c9c9c9', padx=10, pady=10)
+        self.editFrame.pack(side='right', fill='y')
+        self.editFrame.pack_propagate(0)
+        exportButton = tk.Button(self.editFrame, height = 1, text='Export Selection',
+                                 command=self.exportSelection)
+        exportButton.pack(side='bottom', fill = 'x')
 
         for x in open_immeditately: self.addClip(x)
         keyboard.add_hotkey(binds['save'], self.save_recording)
@@ -50,9 +60,10 @@ class MainEditor ():
         self.root.bind("<FocusIn>", self.onFocus)
         self.root.bind("<FocusOut>", self.offFocus)
 
-        self.root.wm_state('iconic') #is starting as minimised worth? yeah
+        self.root.wm_state('iconic') #is starting as minimised worth? make this a setting
         self.root.mainloop()
 
+    #get the active notebook tab
     def getActive (self):
         return self.tabControl.index(self.tabControl.select())
 
@@ -82,6 +93,22 @@ class MainEditor ():
     def play (self, _=''):
         self.tabs[self.getActive()].start_play_thread()
 
+    def exportSelection (self):
+        data = self.tabs[self.getActive()].saveSelection()
+        name = fd.asksaveasfilename(defaultextension=".wav", filetypes=[("Wave Files", ".wav")])
+        self.tabControl.tab(self.getActive(), text = name.split('/')[-1])
+        print(data[0])
+
+        with wave.open(name, 'wb') as wf:
+            wf.setnchannels(self.rec_args['CHANNELS'])
+            wf.setsampwidth(self.p.get_sample_size(self.rec_args['FORMAT']))
+            wf.setframerate(self.rec_args['RATE'])
+            #for x in data:
+            wf.writeframes(data) #write data to wav
+
+        print(f'Exported selection to {name}')
+
+    #called on maximising; ends recording, draws newly recorded files
     def onFocus (self, _=''):
         if not self.focused:
             self.focused = True
@@ -92,6 +119,7 @@ class MainEditor ():
             self.root.update_idletasks()
             print('focused')
 
+    #called on minimising; start a new recorder
     def offFocus (self, _=''):
         if self.focused:
             self.focused = False

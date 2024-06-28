@@ -11,7 +11,7 @@ TODO:
 import tkinter as tk
 from tkinter import ttk
 from functools import partial
-import passive_recorder as pr
+import main
 import keyboard
 
 import pyaudiowpatch as pyaudio #allows WASAPI
@@ -86,7 +86,7 @@ class startUI:
     def close (self, _=''):
         if self.rebind == False:
             self.root.destroy()
-            pr.start_recording(self.rec_args, self.binds)
+            MainEditor(self.rec_args, self.binds)
 
     def loadIntroFrame (self):
         with open("data/intro-text.txt", "r+") as info:
