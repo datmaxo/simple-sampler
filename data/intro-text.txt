@@ -23,7 +23,7 @@ V0.5:
    * can be altered in welcome page or in main recording window
  - keybind settings can now be edited during recording
  - updated visual of selected portion of recording
- - fixed major memory leak when going back and forth between recording tabs
+ - fixed major memory leak when going back and forth between recording tabs 
    * recordings may take longer to visualise as a result; aiming to improve quickly
    * known bug with displaying incorrect recording selections between tabs
 
