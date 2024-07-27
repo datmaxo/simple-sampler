@@ -14,6 +14,19 @@ Happy recording :)
 
 CHANGE-LOG:
 
+V0.5:
+ - audio can finally be exported!
+   * if a region is selected, this clip will be exported instead
+ - added looping, for playing a region continously until manual stop
+ - introduced settings window:
+   * can be used to alter recording time, sample rate, etc
+   * can be altered in welcome page or in main recording window
+ - keybind settings can now be edited during recording
+ - updated visual of selected portion of recording
+ - fixed major memory leak when going back and forth between recording tabs
+   * recordings may take longer to visualise as a result; aiming to improve quickly
+   * known bug with displaying incorrect recording selections between tabs
+
 V0.4:
  - introduced editor window:
    * view recorded wave-forms with scroll and zoom controls

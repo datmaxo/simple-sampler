@@ -11,8 +11,9 @@ TODO:
 import tkinter as tk
 from tkinter import ttk
 from functools import partial
-import main
-import keyboard
+import main_ui as m
+import settings
+import keybind
 
 import pyaudiowpatch as pyaudio #allows WASAPI
 import sys
@@ -24,21 +25,26 @@ class startUI:
         #the parameters to load the recording with
         self.rec_args = {'CHUNK': 4, 
         'FORMAT': pyaudio.paInt16,
+        'RATE':48000,
         'CHANNELS': 1 if sys.platform == 'darwin' else 2,
-        'RECORD_SECONDS': 10}
+        'RECORD_SECONDS': 10,
+        'MINIMIZE_ON_RECORD': False}
+        try:
+            with open('data/settings.json', 'r+') as argfile:
+                kb = argfile.read()
+                if len(kb) == 0:
+                    print("No settings file found - saving defaults.")
+                    argfile.write(json.dumps(self.rec_args))
+                else:
+                    self.rec_args = json.loads(kb)
+                    print("Keybinds loaded.")
+        except:
+            with open('data/settings.json', 'w') as argfile:
+                print("No settings file found - saving defaults.")
+                argfile.write(json.dumps(self.rec_args))
 
-        #key binds which are active in the main recorder
-        self.binds = {'save': 'a', 'exit': 'ctrl+shift+esc'} #default binds
-        self.rebind = False #are we rebinding a command right now?
-        with open('data/keybinds.json', 'r+') as keyfile:
-            kb = keyfile.read()
-            if len(kb) == 0:
-                print("No keybind file found - saving default binds.")
-                keyfile.write(json.dumps(self.binds))
-            else:
-                self.binds = json.loads(kb)
-                print("Keybinds loaded.")
-        
+        self.loadBinds()
+                
         self.root = tk.Tk()
         #self.tk.geometry("500x300")
         #self.root.geometry("400x240")#+%d+%d") % ((self.tk.winfo_screenwidth() / 2) - 380, (self.tk.winfo_screenheight() / 2) - 390))
@@ -79,20 +85,32 @@ class startUI:
         #load the UI's of each tab, draw UI
         self.loadIntroFrame()
         self.loadKeybindFrame()
-        self.loadRecordingFrame()
+        self.loadSettingsFrame()
         self.root.mainloop()
+
+    def loadBinds (self, _=''):
+        #key binds which are active in the main recorder
+        self.binds = {'save': 'a', 'exit': 'ctrl+shift+esc'} #default binds
+        with open('data/keybinds.json', 'r+') as keyfile:
+            kb = keyfile.read()
+            if len(kb) == 0:
+                print("No keybind file found - saving default binds.")
+                keyfile.write(json.dumps(self.binds))
+            else:
+                self.binds = json.loads(kb)
+                print("Keybinds loaded.")
 
     #close this window, begin main audio sequence
     def close (self, _=''):
         if self.rebind == False:
             self.root.destroy()
-            MainEditor(self.rec_args, self.binds)
+            m.MainEditor(self.rec_args, self.binds)
 
     def loadIntroFrame (self):
         with open("data/intro-text.txt", "r+") as info:
             text = info.read()
 
-            introLabel = tk.Label(self.infoframe, text="\nWelcome to Pillow's Simple Sample Recorder! (v0.3)\n",
+            introLabel = tk.Label(self.infoframe, text="\nWelcome to Pillow's Simple Sample Recorder! (v0.5)\n",
                                   font='Helvetica 16 bold underline')
             introLabel.pack(side='top', fill='x')
 
@@ -110,78 +128,14 @@ class startUI:
             self.introtext.configure(yscrollcommand=scroll.set)
             scroll.pack(side="right", fill="y")
 
-    def loadRecordingFrame (self):
-        title = tk.Label(self.recordingframe, text="TODO\n",
-                              font='Helvetica 12 bold underline', padx=5, pady=5, justify='right')
-        title.pack(side='top', fill='x')
-        note = tk.Label(self.recordingframe, text="lol this will be boring, will probs work on the editor ",
-                              font='Helvetica 8', padx=5, pady=5, justify='right')
-        note.pack(side='top', fill='x')
+    def loadSettingsFrame (self):
+        settings.SettingsWin(self.rec_args, self.recordingframe, self.updateSettings)
 
     def loadKeybindFrame (self):
-        title = tk.Label(self.keybindframe, text="Keybinds\n",
-                              font='Helvetica 12 bold underline', padx=5, pady=5, justify='right')
-        title.pack(side='top', fill='x')
-        note = tk.Label(self.keybindframe, text="NOTE: For keybinds with one or more '+' in them, all keys must be held simultaneously.",
-                              font='Helvetica 8', padx=5, pady=5, justify='right')
-        note.pack(side='top', fill='x')
+        keybind.KeybindsWin(self.keybindframe, self.loadBinds)
 
-        self.kbframe = tk.Frame(self.keybindframe, bg='#c9c9c9', relief='ridge', borderwidth=2,
-                                 padx = 5, pady= 5)
-        self.kbframe.pack(side='top', fill='both', expand=True)
-
-        self.key_texts = {}
-        self.key_rebind_buttons = {}
-        for key in self.binds.keys():
-            actionframe = tk.Frame(self.kbframe, padx=5, pady=5, relief='solid', borderwidth=2)
-            actionframe.pack(side='top', anchor="nw", fill = 'x')
-            
-            text = tk.Label(actionframe, text=f'{key.upper()} : {self.binds[key]}')
-            text.pack(side='left')
-            self.key_texts[key] = text
-
-            button = tk.Button(actionframe, text='Rebind', command=partial(self.rebindKey, key))
-            button.pack(side='right')
-            self.key_rebind_buttons[key] = button
-
-            gap = tk.Frame(self.kbframe, height = 5, bg='#c9c9c9')
-            gap.pack(side='top')
-
-    def rebindKey (self, key):
-        self.rebind = True
-        for x in self.key_rebind_buttons.keys():
-            if x != key:
-                self.key_rebind_buttons[x].configure(state='disabled')
-        self.start_button.configure(state='disabled')
-        self.key_rebind_buttons[key].configure(text='Done?', command=partial(self.saveKeyBinding,key))
-        self.key_texts[key].configure(text = f'{key.upper()} : PRESS KEY(S)')
-        self.root.update_idletasks()
-
-        keyboard.start_recording()
-            
-    def saveKeyBinding (self, key):
-        keyseq = set([ke.name for ke in keyboard.stop_recording() if ke.event_type == "up" and ke.name != "+"])
-        keyseq = sorted(list(keyseq), key=len)
-        keyseq.reverse()
-
-        if len(keyseq) > 0:
-            keystr = ""
-            for k in keyseq:
-                keystr += k + '+'
-            self.binds[key] = keystr[:-1]
-            print(keystr[:-1])
-
-            with open('data/keybinds.json', 'w+') as keyfile:
-                keyfile.write(json.dumps(self.binds))
-                keyfile.close() #not necessary i dont think lol
-
-        self.key_texts[key].configure(text = f'{key.upper()} : {self.binds[key]}')
-        self.key_rebind_buttons[key].configure(text='Rebind', command=partial(self.rebindKey,key))
-        self.start_button.configure(state='normal')
-        for x in self.key_rebind_buttons.keys():
-            self.key_rebind_buttons[x].configure(state='normal')
-
-        self.rebind=False #i don't think i need this var anymore but I'll keep it around for now
+    def updateSettings (self, newsettings):
+        self.rec_args = newsettings
 
 if __name__ == '__main__':
     guy = startUI()

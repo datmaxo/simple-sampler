@@ -37,32 +37,45 @@ def toNearest (num, nearest):
     return nearest * round(num / nearest)
 
 class EditorWindow ():
-    def __init__ (self, root, audio, rec_set):
+    def __init__ (self, root, audio, rec_set, fig, ax):
+        self.fig = fig
+        self.ax = ax
         self.p = pyaudio.PyAudio()
         self.rec_args = rec_set #dictionary of recording arguments; used when intergacing with wave files
-
+        self.aud_path = ''
         if type(audio) == str:
-            self.openWave(audio)
-        else:
-            self.t_signal = np.frombuffer(audio, np.int16) #the 'true' signal, used for playing the audio
-        self.channel_signal = self.readWave()
+            self.aud_path = audio
+        print(type(audio))
+
+        if False:
+            if type(audio) == str:
+                self.openWave(audio)
+            else:
+                self.t_signal = np.frombuffer(audio, np.int16) #the 'true' signal, used for playing the audio
+            self.channel_signal = self.readWave()
 
         self.mousex = 0 #current mouse position in canvas; used for zooming
-        self.start, self.end = [0, self.channel_signal.shape[1]] #where to play and stop the clip
+        self.start, self.end = [0, self.rec_args['RATE'] * self.rec_args['RECORD_SECONDS']] #where to play and stop the clip
         self.loop_rects = [] #contauns the drawn bounds of start and end points
         self.cpos = 0 #the current position in the played clip; used to render the play cursor
         self.isPlaying = False #is the clip being played right now? used to control threads involved with audio.
+        self.loop = False #does the clip automatically jump back to the beginning whilst playing?
+        self.drawn = False #has the waveform been drawn yet?
+        self.open = False #is this window currently open?
 
         #aud canvas and scroll wheel
         self.root = root
-        canvFrame = tk.Frame(self.root)
-        canvFrame.pack()
-        self.drawWaveform(canvFrame)
-        self.scroll = tk.Scrollbar(canvFrame, orient='horizontal', command=self.scrollWave)
+        self.canvFrame = tk.Frame(self.root)
+        self.canvFrame.pack()
+        #self.drawWaveform(canvFrame)
+        self.scroll = tk.Scrollbar(self.canvFrame, orient='horizontal', command=self.scrollWave)
         self.scroll.set(0,1)
         self.scroll.pack(side="bottom", fill="x")
         self.scroll.bind("<MouseWheel>", self.mousewheel_scrollWave)
         self.scroll_measures = {'units':0.05, 'pages':0.2}
+
+        self.root.bind("<FocusIn>", self.onFocus)
+        self.root.bind("<FocusOut>", self.offFocus)
 
     #if passed a wavefile location in __init__, open the file and read it as a numpy array
     def openWave (self, file):
@@ -91,37 +104,53 @@ class EditorWindow ():
 
         return signal
 
+    def closeWave (self):
+        self.t_signal = []
+        self.channel_signal = []
+
     """Creates the audio canvas and draws the waveform using matplotlib.
        If I implement opening waveforms from the editor, move canvas creation to __init__"""
     def drawWaveform (self, target):
-        self.fig, self.ax = plt.subplots(nrows=2, ncols=1)
-        self.ax[0].plot(self.channel_signal[0])
-        self.ax[1].plot(self.channel_signal[1])
-    
-        for a in self.ax:
-            a.tick_params( axis='both', which='both', bottom=False, left=False,         
-                           labelbottom=False, labelleft = False )
-            #a.set_facecolor((143/255, 156/255, 154/255))
-            #a.axis('off')
-            _, __, local_ymin, local_ymax = a.axis()
-            a.axis([0, len(self.channel_signal[0]), local_ymin, local_ymax])
+        if self.open:
+            
+            for a in self.ax:
+                for art in list(a.lines):
+                    art.remove()
+                    
+            self.ax[0].plot(self.channel_signal[0])
+            self.ax[1].plot(self.channel_signal[1])
+            print('okay')
 
-        plt.tight_layout()
-        plt.connect('motion_notify_event', self.mouse_move)
+            if not self.drawn:
+                #maybe redundant? could move to main_ui?
+                for a in self.ax:
+                    a.tick_params( axis='both', which='both', bottom=False, left=False,         
+                                   labelbottom=False, labelleft = False )
+                    #a.set_facecolor((143/255, 156/255, 154/255))
+                    #a.axis('off')
+                    _, __, local_ymin, local_ymax = a.axis()
+                    a.axis([0, len(self.channel_signal[0]), local_ymin, local_ymax])
+                
+                plt.tight_layout()
+                plt.connect('motion_notify_event', self.mouse_move)
 
-        self.canvas = FigureCanvasTkAgg(self.fig, 
-                                   master = target)   
-        self.canvas.draw() 
-        self.canvas.get_tk_widget().pack(side='top')
-        self.canvas.get_tk_widget().configure(height = 250)
-        
-        self.canvas.get_tk_widget().bind("<MouseWheel>", self.zoomWave)
-        self.canvas.get_tk_widget().bind("<Button-1>", self.set_start)
-        self.canvas.get_tk_widget().bind("<Button-3>", self.set_end)
+                self.canvas = FigureCanvasTkAgg(self.fig, 
+                                           master = target)   
+                self.canvas.draw() 
+                self.canvas.get_tk_widget().pack(side='top')
+                self.canvas.get_tk_widget().configure(height = 250)
+                
+                self.canvas.get_tk_widget().bind("<MouseWheel>", self.zoomWave)
+                self.canvas.get_tk_widget().bind("<Button-1>", self.set_start)
+                self.canvas.get_tk_widget().bind("<Button-3>", self.set_end)
+            else:
+                self.canvas.draw()
+                
+            self.drawn = True
 
     #update the mouse position variable when it's over the audio canvas
     def mouse_move(self, event):
-        if event.xdata != None:
+        if event.xdata != None and self.open:
             self.mousex = min(max(0, event.xdata), self.channel_signal.shape[1])
 
     """zoom in and out of the wave based upon the current mouse x position"""
@@ -195,7 +224,7 @@ class EditorWindow ():
         for a in self.ax:
             _, __, ymin, ymax = a.axis()
             r = patches.Rectangle((self.start, ymin + 250), self.end - self.start, ((ymax - 500) - (ymin + 500)),
-                                  linewidth=1.5, edgecolor='r', facecolor='none', zorder = 10)
+                                  linewidth=1.5, edgecolor='r', facecolor='r', zorder = 10, alpha=0.5)
             a.add_patch(r)
             self.loop_rects.append(r)
         self.canvas.draw()
@@ -233,12 +262,21 @@ class EditorWindow ():
                         rate=self.rec_args['RATE'],
                         output=True)
 
-        #'play audio' loop
+        #'play audio' loop - can repeat if self.loop is set to true
         CHUNK = self.rec_args['CHUNK']
-        for c in range(self.start * chans, self.end * chans, CHUNK):
-            data = self.t_signal[c: c+CHUNK].tobytes()
-            stream.write(data)
-            self.cpos = c
+        play=True
+        looper = self.loop
+        while looper or play:
+            play=False
+            for c in range(self.start * chans, self.end * chans, CHUNK):
+                data = self.t_signal[c: c+CHUNK].tobytes()
+                stream.write(data)
+                self.cpos = c
+                looper = self.loop
+                if not self.isPlaying:
+                    print('uh oh it is time to stop the recording')
+                    looper = False
+                    break
         self.cpos = self.end * chans + 1
 
         stream.close()
@@ -251,7 +289,7 @@ class EditorWindow ():
         for a in self.ax:
             _, __, ymin, ymax = a.axis()
             p = patches.Rectangle((self.start, ymin + 250), 1, (ymax - ymin) - 500, linewidth=1.5,
-                                  edgecolor='black', facecolor='none', zorder = 5)
+                                  edgecolor='black', facecolor='none', zorder = 15)
             a.add_patch(p)
             playlines.append(p)
         self.canvas.draw()
@@ -270,5 +308,31 @@ class EditorWindow ():
 
     def saveSelection (self):
         return self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']].tobytes()
+
+    def stop (self):
+        self.isPlaying = False
+
+    def setLoop (self, loop):
+        self.loop = loop
+
+    """
+    These two onFocus, offFocus funcitons were designed to help reduce memory load that comes
+    with loading multiple matplotlib figures simultaneously.
+    However, for the life of me I can't get the memory to drop!
+    Maybe if I make the figure in main_ui and pass it into here, we can only rely on a single ver the fig code?
+    """
+
+    #when the editor window is brought into focus, load the waveform
+    def onFocus (self, _=''):
+        if not self.open:
+            self.open = True
+            self.openWave(self.aud_path)
+            self.drawWaveform(self.canvFrame)
+
+    #when the editor window is closed, stop the track eugine!
+    def offFocus (self, _=''):
+        self.open = False
+        self.stop()
+        self.closeWave()
 
 #widnow = EditorWindow('tmp/output(1).wav', rec_args)

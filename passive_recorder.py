@@ -68,13 +68,14 @@ class Recorder:
     def write_file (self, num):
         if len(self.data) == self.max_size:
             copy = [d for d in self.data] #deep copy of recording so it comes out clean
-            with wave.open(f'tmp/output ({num}).wav', 'wb') as wf:
+            filename = f'tmp/output ({num}).wav'
+            with wave.open(filename, 'wb') as wf:
                 wf.setnchannels(self.rec_args['CHANNELS'])
                 wf.setsampwidth(self.p.get_sample_size(self.rec_args['FORMAT']))
                 wf.setframerate(self.rec_args['RATE'])
                 for x in copy: wf.writeframes(x) #write data to wav
                 wf.close()
-            return copy
+            return filename
         return None
         
 

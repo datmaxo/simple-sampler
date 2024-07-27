@@ -8,6 +8,9 @@ I also think we have to block playblack whilst recording sadly; it just doesn't 
 For now, we can just make a new Recorder on minimisation, and delete them on focus.
 """
 
+#TODO: this editor could probably be way more memory efficient if I only load audio as its required and also
+#unload audio for frames that are not currently being edited
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
@@ -20,7 +23,20 @@ import wave
 
 from passive_recorder import Recorder
 from wave_editor import EditorWindow
+from settings import SettingsWin
+from keybind import KeybindsWin
 from threading import Thread
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
+NavigationToolbar2Tk)
+
+#matplotlib rendering params; we don't particualrly care for accuarcy compared to performance here
+mpl.rcParams['path.simplify'] = True
+mpl.rcParams['path.simplify_threshold'] = 1
+mpl.use('TkAgg')
 
 """This should really be its own script but for now it can stay here"""
 class MainEditor ():
@@ -32,6 +48,7 @@ class MainEditor ():
         self.recording_num = 1
         self.clip_queue = []
         self.focused = True
+        self.loop = False
         self.offFocus()
         
         #main window
@@ -44,13 +61,34 @@ class MainEditor ():
         self.tabControl = ttk.Notebook(self.root, width=500) 
         self.tabControl.pack(side = 'left', expand = False, fill = "y")
 
+        #matplotlib stuff - pass to each editorwindow to keep memory usage down :)
+        self.fig, self.ax = plt.subplots(nrows=2, ncols=1)
+
+        #editor options frame
         self.editFrame = tk.Frame(self.root, width = 250, relief='ridge', borderwidth = 3,
                                   bg='#c9c9c9', padx=10, pady=10)
         self.editFrame.pack(side='right', fill='y')
         self.editFrame.pack_propagate(0)
+
+        mainbuttons = tk.Frame(self.editFrame, width = 250, height=60)
+        mainbuttons.pack(side='top')
+        mainbuttons.pack_propagate(0)
+        playButton = tk.Button(mainbuttons, height=3, text="Play", command=self.play)
+        playButton.pack(side='left', fill='x', expand=True)
+        stopButton = tk.Button(mainbuttons, height=3, text="Stop", command=self.stop)
+        stopButton.pack(side='left', fill='x', expand=True)
+        self.loopButton = tk.Button(mainbuttons, height=3, text="Loop", command=self.setLoop)
+        self.loopButton.pack(side='left', fill='x', expand=True)
+        recButton = tk.Button(mainbuttons, height=3, text="Rec ", command=self.play)
+        recButton.pack(side='left', fill='x', expand=True)
+        self.menuInit()
+        
         exportButton = tk.Button(self.editFrame, height = 1, text='Export Selection',
                                  command=self.exportSelection)
         exportButton.pack(side='bottom', fill = 'x')
+        setButton = tk.Button(self.editFrame, height = 1, text='Change Settings',
+                                 command=self.openSettings)
+        setButton.pack(side='bottom', fill = 'x')
 
         for x in open_immeditately: self.addClip(x)
         keyboard.add_hotkey(binds['save'], self.save_recording)
@@ -63,9 +101,51 @@ class MainEditor ():
         self.root.wm_state('iconic') #is starting as minimised worth? make this a setting
         self.root.mainloop()
 
+    def menuInit (self):
+        self.bar = tk.Menu(self.root)
+        
+        options = tk.Menu(self.bar, tearoff=0)
+        options.add_command(label='Edit Settings', command=self.openSettings)
+        options.add_command(label='Edit Keybinds', command=self.openKeybinds)
+        
+        self.bar.add_cascade(menu=options, label='Options')
+        self.root.config(menu=self.bar)
+
     #get the active notebook tab
     def getActive (self):
         return self.tabControl.index(self.tabControl.select())
+
+    #opens the settings module as a toplevel tk window
+    def openSettings (self):
+        self.setWin = tk.Toplevel()
+        self.setWin.title('Settings')
+        SettingsWin(self.rec_args, self.setWin, self.updateSettings)
+
+    #opens the keybinds module as a toplevel tk window
+    def openKeybinds (self):
+        self.kbWin = tk.Toplevel()
+        self.kbWin.title("Alter Keybindings")
+        KeybindsWin(self.kbWin, self.reloadBinds)
+
+    #updates the settings to the new values, destroys the toplevel settings window
+    def updateSettings (self, newsettings):
+        self.rec_args = newsettings
+        try: self.setWin.destroy()
+        except: print('No settings window to destroy!')
+
+    #reloads the keybinds from file, destroys toplevel. doesn't currently re-load settings if they have been lost.
+    def reloadBinds (self):
+        with open('data/keybinds.json', 'r+') as keyfile:
+            kb = keyfile.read()
+            if len(kb) == 0:
+                print("No keybind file found - saving default binds.")
+                keyfile.write(json.dumps(self.binds))
+            else:
+                self.binds = json.loads(kb)
+                print("Keybinds loaded.")
+
+        try: self.kbWin.destroy()
+        except: print('No keybinds window to destroy!')
 
     def exit (self):
         #something something
@@ -76,22 +156,40 @@ class MainEditor ():
        I think i'm going to keep doing it just for backup reasons tho"""
     def save_recording (self):
         out = self.recorder.write_file(self.recording_num)
+        self.recording_num += 1
         if out != None:
-            if not self.focused:
-                self.clip_queue.append(np.array(out))
-            else:
-                self.addClip(np.array(out))
+            self.addClip(out)
         print('Recording saved.')
 
-    def addClip (self, audio):
+    def addClip (self, path):
         self.tab_frames.append(ttk.Frame(self.tabControl))
         self.tabControl.add(self.tab_frames[-1], text = f'untitled ({self.recording_num}).wav')
-        self.tabs.append(EditorWindow(self.tab_frames[-1], audio, self.rec_args))
-        self.recording_num += 1
+        self.tabs.append(EditorWindow(self.tab_frames[-1], path, self.rec_args, self.fig, self.ax))
 
     #should set 'playable' flag in other threads to prevent overwhemling the buffer
     def play (self, _=''):
         self.tabs[self.getActive()].start_play_thread()
+
+    def stop (self, _=''):
+        self.tabs[self.getActive()].stop()
+
+    def setLoop (self, _=''):
+        self.loop = not self.loop
+        if self.loop:
+            self.loopButton.configure(relief='sunken')
+        else:
+            self.loopButton.configure(relief='raised')
+        print(f'Loop has been set to {self.loop}')
+        for tab in self.tabs:
+            tab.setLoop(self.loop)
+
+    def record (self, _=''):
+        #todo: activate recording, optionally minimise the window
+        #ik we don't load options right now but they're gonna be here soon, so code with them in mind uwu
+
+        #idea: make the recording window in start_window initially, but then move to own script and just run in start_window
+        #then, we can load that same screen in the main script for no extra cost (filesize) & it doens't needlessly limit settings to startup >:)
+        pass
 
     def exportSelection (self):
         data = self.tabs[self.getActive()].saveSelection()
@@ -115,6 +213,7 @@ class MainEditor ():
             try: self.recorder.stop = True
             except: print("Couldn't stop recording - no recorder loaded :(")
             for x in self.clip_queue: self.addClip(x)
+            self.tabs[self.getActive()].onFocus()
             self.clip_queue = []
             self.root.update_idletasks()
             print('focused')
