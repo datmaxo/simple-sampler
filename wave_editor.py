@@ -30,7 +30,10 @@ NavigationToolbar2Tk)
 
 #matplotlib rendering params; we don't particualrly care for accuarcy compared to performance here
 mpl.rcParams['path.simplify'] = True
-mpl.rcParams['path.simplify_threshold'] = 1         
+mpl.rcParams['path.simplify_threshold'] = 1
+
+#operator to control whether we can store audio when frames are not in use to save time at cost to memory
+clearMemOnMin = False
 
 #used to round start, end positions to the nearest CHUNK value
 def toNearest (num, nearest):
@@ -47,6 +50,7 @@ class EditorWindow ():
             self.aud_path = audio
         print(type(audio))
 
+        self.t_signal = []
         if False:
             if type(audio) == str:
                 self.openWave(audio)
@@ -62,6 +66,8 @@ class EditorWindow ():
         self.loop = False #does the clip automatically jump back to the beginning whilst playing?
         self.drawn = False #has the waveform been drawn yet?
         self.open = False #is this window currently open?
+        self.saved = False #has this recording been saved at all? if not, call dialogue box on attempted closure
+        self.closing = False #used to signify to the main ui that this window is being closed
 
         #aud canvas and scroll wheel
         self.root = root
@@ -79,10 +85,11 @@ class EditorWindow ():
 
     #if passed a wavefile location in __init__, open the file and read it as a numpy array
     def openWave (self, file):
-        with wave.open(file, "r") as aud_file:
-            self.t_signal = aud_file.readframes(-1)
-            self.t_signal = np.frombuffer(self.t_signal, np.int16)
-            self.channel_signal = self.readWave()
+        if len(self.t_signal) < 1:
+            with wave.open(file, "r") as aud_file:
+                self.t_signal = aud_file.readframes(-1)
+                self.t_signal = np.frombuffer(self.t_signal, np.int16)
+                self.channel_signal = self.readWave()
 
     #split the loaded wave file into the correct number of channels
     def readWave (self):
@@ -105,8 +112,9 @@ class EditorWindow ():
         return signal
 
     def closeWave (self):
-        self.t_signal = []
-        self.channel_signal = []
+        if clearMemOnMin:
+            self.t_signal = []
+            self.channel_signal = []
 
     """Creates the audio canvas and draws the waveform using matplotlib.
        If I implement opening waveforms from the editor, move canvas creation to __init__"""
@@ -117,8 +125,8 @@ class EditorWindow ():
                 for art in list(a.lines):
                     art.remove()
                     
-            self.ax[0].plot(self.channel_signal[0])
-            self.ax[1].plot(self.channel_signal[1])
+            self.ax[0].plot(self.channel_signal[0], color='blue')
+            self.ax[1].plot(self.channel_signal[1], color='blue')
             print('okay')
 
             if not self.drawn:
@@ -148,10 +156,18 @@ class EditorWindow ():
                 
             self.drawn = True
 
-    #update the mouse position variable when it's over the audio canvas
+        self.draw_play_region()
+
+    # update the mouse position variable when it's over the audio canvas
     def mouse_move(self, event):
         if event.xdata != None and self.open:
             self.mousex = min(max(0, event.xdata), self.channel_signal.shape[1])
+
+    # update the specifieid settings
+    # need to be able to handle speciifc settings because we don't want to change recording playback crucial ones.
+    def updateSettings(self, newSettings):
+        for setting in newSettings:
+            self.rec_args[setting] = newSettings[setting]
 
     """zoom in and out of the wave based upon the current mouse x position"""
     def zoomWave (self, event):
@@ -216,8 +232,10 @@ class EditorWindow ():
 
     #draw a funky red box between the current start and end positions
     def draw_play_region (self):
-        for r in self.loop_rects:
-            r.remove()
+        try:
+            for r in self.loop_rects:
+                r.remove()
+        except: pass
 
         #need to draw the box in every subplot (channel)
         self.loop_rects = []
@@ -307,6 +325,7 @@ class EditorWindow ():
         self.canvas.draw()
 
     def saveSelection (self):
+        self.saved = True
         return self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']].tobytes()
 
     def stop (self):
@@ -318,8 +337,8 @@ class EditorWindow ():
     """
     These two onFocus, offFocus funcitons were designed to help reduce memory load that comes
     with loading multiple matplotlib figures simultaneously.
-    However, for the life of me I can't get the memory to drop!
-    Maybe if I make the figure in main_ui and pass it into here, we can only rely on a single ver the fig code?
+    Memory leak has since been fixed, so I'm not too sure how relevant these will be once recording is properly
+    implemented?
     """
 
     #when the editor window is brought into focus, load the waveform
@@ -334,5 +353,34 @@ class EditorWindow ():
         self.open = False
         self.stop()
         self.closeWave()
+
+        #destroy loop region (for now)
+        try:
+            for r in self.loop_rects:
+                r.remove()
+        except: pass
+
+    #TODO - add option to ignore message boxes of all descriptions?
+    def destroyEditor (self, _=''):
+        kill = self.saved
+        if kill:
+            self.closing = True
+            self.dieForReal()
+        if not kill and self.rec_args['USE_MESSAGE_BOXES']:
+            kill = tk.messagebox.Message(message='Recording is unsaved - do you still wish to close it?', type='yesno').show()
+            print(kill)
+            if kill == 'yes':
+                self.closing = True
+                self.dieForReal()
+
+    #actually destroys the window
+    def dieForReal (self):
+        self.stop()
+        #destroy loop region to prevent overlap
+        try:
+            for r in self.loop_rects:
+                r.remove()
+        except: pass
+        self.root.destroy()
 
 #widnow = EditorWindow('tmp/output(1).wav', rec_args)

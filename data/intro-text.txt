@@ -14,6 +14,16 @@ Happy recording :)
 
 CHANGE-LOG:
 
+V0.6:
+ - recordings can be closed via the main editor 
+ - added new setting to disable pop-up message boxes, such as save warnings
+ - bug fixes:
+   * fixed selection not updating between tabs
+   * fixed saving settings with boolean values
+ - known issues:
+   * selections can visually overlap in rare circumstances
+   * altering the play region during playback can cause visual issues
+
 V0.5:
  - audio can finally be exported!
    * if a region is selected, this clip will be exported instead

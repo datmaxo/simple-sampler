@@ -60,8 +60,10 @@ class SettingsWin:
             #if the setting is a boolean, we create a checkbox (where e is an intvar), otherwise it's a normal entry
             if type(self.args[key]) == bool:
                 e = tk.IntVar()
+                e.set(int(self.args[key]))
                 b = tk.Checkbutton(actionframe, variable=e, bg='#c9c9c9', activebackground='#c9c9c9')
                 b.pack(side='left')
+                #if bool(self.args[key]): b.select()
             else:
                 e = tk.Entry(actionframe, width=20)
                 e.pack(side='left')
@@ -81,19 +83,23 @@ class SettingsWin:
         new_args = {}
         for k in inputs.keys():
             val = inputs[k].get()
+            print(val)
             try:
                 if type(self.args[k]) == str: val = str(val) #pointless 
                 elif type(self.args[k]) == int: val = int(val)
+                elif type(self.args[k]) == bool: val = bool(val)
                 else: val = self.args[k] #in the event of no args, just be default
             except: val = self.args[k]
             new_args[k] = val
 
             #clear the setting and replace with the true new value - in practice, this resets vals of the wrong type
-            inputs[k].delete(0,999999)
-            inputs[k].insert(0, val)
+            if type(val) != bool:
+                inputs[k].delete(0,999999)
+                inputs[k].insert(0, val)
 
         #write to settings json
         self.args = new_args
+        print(self.args)
         with open('data/settings.json', 'w+') as argfile:
             argfile.write(json.dumps(self.args))
 
@@ -103,8 +109,8 @@ class SettingsWin:
             print('Valid savefunc: executing now...')
             try:
                 self.savefunc(new_args)
-            except:
-                print('Some type of error occured or something, to be honest I do not care and will be promptly going on holiday.')
+            except Exception as e:
+                print(e)
         else:
             print(f'this is weird? type: {type(self.savefunc)}')
 
@@ -115,6 +121,7 @@ if __name__ == '__main__':
                 'RATE':48000,
                 'CHANNELS': 1 if sys.platform == 'darwin' else 2,
                 'RECORD_SECONDS': 10,
-                'MINIMIZE_ON_RECORD': False}
+                'MINIMIZE_ON_RECORD': False,
+                'USE_MESSAGE_BOXES': False}
 
     s = SettingsWin(rec_args, '', __testsavefunc)

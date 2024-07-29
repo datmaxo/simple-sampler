@@ -49,6 +49,7 @@ class MainEditor ():
         self.clip_queue = []
         self.focused = True
         self.loop = False
+        self.recording = False #are we recording audio right now?
         self.offFocus()
         
         #main window
@@ -79,16 +80,28 @@ class MainEditor ():
         stopButton.pack(side='left', fill='x', expand=True)
         self.loopButton = tk.Button(mainbuttons, height=3, text="Loop", command=self.setLoop)
         self.loopButton.pack(side='left', fill='x', expand=True)
-        recButton = tk.Button(mainbuttons, height=3, text="Rec ", command=self.play)
-        recButton.pack(side='left', fill='x', expand=True)
+        self.recButton = tk.Button(mainbuttons, height=3, text="Rec ", command=self.record)
+        self.recButton.pack(side='left', fill='x', expand=True)
         self.menuInit()
-        
+
+        #button for saving last n seconds of recorded audio; only enabled when recording of course!
+        self.saveRecBut = tk.Button(self.editFrame, height = 1, text=f"Save Last {self.rec_args['RECORD_SECONDS']}s",
+                                 command=self.save_recording)
+        self.saveRecBut.pack(side='top', fill = 'x')
+        self.saveRecBut['state'] = 'disabled'
+
+        closeButton = tk.Button(self.editFrame, height = 1, text='Close Current Recording',
+                                 command=self.closeRecording)
+        closeButton.pack(side='bottom', fill = 'x')
         exportButton = tk.Button(self.editFrame, height = 1, text='Export Selection',
                                  command=self.exportSelection)
         exportButton.pack(side='bottom', fill = 'x')
         setButton = tk.Button(self.editFrame, height = 1, text='Change Settings',
                                  command=self.openSettings)
         setButton.pack(side='bottom', fill = 'x')
+
+        #buttons that are disabled when the module is recording
+        self.buttonsToDisable = [playButton, stopButton, closeButton, exportButton, setButton]
 
         for x in open_immeditately: self.addClip(x)
         keyboard.add_hotkey(binds['save'], self.save_recording)
@@ -98,7 +111,10 @@ class MainEditor ():
         self.root.bind("<FocusIn>", self.onFocus)
         self.root.bind("<FocusOut>", self.offFocus)
 
-        self.root.wm_state('iconic') #is starting as minimised worth? make this a setting
+        if True:
+            self.tabs[self.getActive()].onFocus()
+        else: self.root.wm_state('iconic') #is starting as minimised worth? make this a setting
+
         self.root.mainloop()
 
     def menuInit (self):
@@ -128,10 +144,21 @@ class MainEditor ():
         KeybindsWin(self.kbWin, self.reloadBinds)
 
     #updates the settings to the new values, destroys the toplevel settings window
+    #could instead store a list of immutable setting titles in the tabs, and change all others - this should work fine
+    #but that would be a better system, so maybe switch it up at a later date
     def updateSettings (self, newsettings):
         self.rec_args = newsettings
+
+        #destroy the settings window
         try: self.setWin.destroy()
         except: print('No settings window to destroy!')
+
+        #try and update the values of target settings in each tab 
+        try:
+            for tab in self.tabs:
+                tab.updateSettings({'USE_MESSAGE_BOXES': newsettings['USE_MESSAGE_BOXES']})
+        except Exception as e:
+            print(f'Specified setting was not found: {e}')
 
     #reloads the keybinds from file, destroys toplevel. doesn't currently re-load settings if they have been lost.
     def reloadBinds (self):
@@ -183,13 +210,31 @@ class MainEditor ():
         for tab in self.tabs:
             tab.setLoop(self.loop)
 
+    #either enables or disables recording, depending on the state of self.recording
+    #most of this code replaces the roles of onFocus and offFocus
     def record (self, _=''):
-        #todo: activate recording, optionally minimise the window
-        #ik we don't load options right now but they're gonna be here soon, so code with them in mind uwu
+        self.recording = not self.recording
+        if self.recording:
+            self.stop()
+            self.recButton.configure(relief='sunken')
+            self.saveRecBut['state'] = 'normal'
+            for b in self.buttonsToDisable: b['state'] = 'disabled'
 
-        #idea: make the recording window in start_window initially, but then move to own script and just run in start_window
-        #then, we can load that same screen in the main script for no extra cost (filesize) & it doens't needlessly limit settings to startup >:)
-        pass
+            self.recorder = Recorder(self.rec_args)
+            if self.rec_args["MINIMIZE_ON_RECORD"]:
+                self.root.wm_state('iconic')
+            
+        else:
+            self.recButton.configure(relief='raised')
+            self.saveRecBut['state'] = 'disabled'
+            for b in self.buttonsToDisable: b['state'] = 'normal'
+
+            try: self.recorder.stop = True
+            except: print("Couldn't stop recording - no recorder loaded :(")
+            for x in self.clip_queue: self.addClip(x)
+            self.tabs[self.getActive()].onFocus()
+            self.clip_queue = []
+            self.root.update_idletasks()
 
     def exportSelection (self):
         data = self.tabs[self.getActive()].saveSelection()
@@ -206,8 +251,21 @@ class MainEditor ():
 
         print(f'Exported selection to {name}')
 
+    #closes the current recording window
+    def closeRecording (self):
+        i = self.getActive()
+        self.tabs[i].destroyEditor()
+
+        #try and close the tab if it is; if it fails, we know it's been destroyed, and can safely remove it
+        try:
+            if self.tabs[i].closing: self.tabs.pop(i)
+        except: self.tabs.pop(i)
+        if self.tabs == []: print('all tabs are gone!')
+
     #called on maximising; ends recording, draws newly recorded files
     def onFocus (self, _=''):
+        pass
+        """
         if not self.focused:
             self.focused = True
             try: self.recorder.stop = True
@@ -217,23 +275,37 @@ class MainEditor ():
             self.clip_queue = []
             self.root.update_idletasks()
             print('focused')
+        """
 
     #called on minimising; start a new recorder
     def offFocus (self, _=''):
+        pass
+        """
         if self.focused:
             self.focused = False
             self.recorder = Recorder(self.rec_args)
             print('waa. it is blury')
-
+        """
 
 if __name__ == '__main__':
+
+    import json # for loading stuff
 
     rec_args = {'CHUNK': 4, 
         'FORMAT': pyaudio.paInt16,
         'RATE':48000,
         'CHANNELS': 1 if sys.platform == 'darwin' else 2,
-        'RECORD_SECONDS': 10
+        'RECORD_SECONDS': 10,
+        'MINIMIZE_ON_RECORD': False
     }
+    try:
+        with open('data/settings.json', 'r+') as argfile:
+            dat = argfile.read()
+            rec_args = json.loads(dat)
+            print("Keybinds loaded.")
+    except:
+        print('some error occured but whatevs girlie')
+
     binds = {'save': 'ctrl+alt+s', 'exit': 'ctrl+alt+e'}
 
     widnow = MainEditor(rec_args, binds, ['tmp/output(1).wav'])
