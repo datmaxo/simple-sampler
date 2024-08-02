@@ -14,7 +14,16 @@ Happy recording :)
 
 CHANGE-LOG:
 
+V0.7:
+ - playback responds to changes in play region when looping
+ - starting screen boots directly into main program; not a different window
+ - bug fixes:
+   * fixed visual issues when updating play region during playback
+
 V0.6:
+ - overhauled recording process:
+   * press the record button on the main window to begin recording
+   * use the 'save last n seconds' button or shortcut to save a recording
  - recordings can be closed via the main editor 
  - added new setting to disable pop-up message boxes, such as save warnings
  - bug fixes:

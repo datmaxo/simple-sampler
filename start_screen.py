@@ -50,17 +50,17 @@ class startUI:
         #self.root.geometry("400x240")#+%d+%d") % ((self.tk.winfo_screenwidth() / 2) - 380, (self.tk.winfo_screenheight() / 2) - 390))
         self.root.title("Simple Sampler")
 
-        self.mainframe = tk.Frame(self.root,padx=5,pady=5)
+        self.mainframe = tk.Frame(self.root)
         self.mainframe.pack(side='top', fill='y')
-        tabControl = ttk.Notebook(self.root) 
+        self.tabControl = ttk.Notebook(self.mainframe) 
 
         #create the ttk tabs for each menu option
         tab_titles = ['Info', 'Keybindings', 'Recording Settings']
         self.tabs = {}
         for title in tab_titles:
-            self.tabs[title] = ttk.Frame(tabControl)
-            tabControl.add(self.tabs[title], text = title) 
-        tabControl.pack(expand = True, fill = "both") 
+            self.tabs[title] = ttk.Frame(self.tabControl)
+            self.tabControl.add(self.tabs[title], text = title) 
+        self.tabControl.pack(expand = True, fill = "both") 
 
         #add regular tk frames to corresponding tab; these are the targets for each tab's GUI
         self.keybindframe = tk.Frame(self.tabs['Keybindings'], borderwidth=2,
@@ -74,7 +74,7 @@ class startUI:
         self.recordingframe.pack(fill = 'both', expand = True)
 
         #create the bottom 'record' button
-        sbframe = tk.Frame(self.root,padx=5,pady=5, height=30)
+        sbframe = tk.Frame(self.mainframe,padx=5,pady=5, height=30)
         sbframe.pack(side='bottom', fill='x')
         self.start_button = tk.Button(sbframe, height = 1, width = 45, bg='#11b82f', text="Start Recording!",
                                       borderwidth=2, relief="groove", activebackground='#168a2b', command=self.close)
@@ -102,15 +102,16 @@ class startUI:
 
     #close this window, begin main audio sequence
     def close (self, _=''):
-        if self.rebind == False:
-            self.root.destroy()
-            m.MainEditor(self.rec_args, self.binds)
+        self.mainframe.destroy()
+        self.tabControl.destroy()
+        self.root.update_idletasks()
+        m.MainEditor(self.rec_args, self.binds, root=self.root)
 
     def loadIntroFrame (self):
         with open("data/intro-text.txt", "r+") as info:
             text = info.read()
 
-            introLabel = tk.Label(self.infoframe, text="\nWelcome to Pillow's Simple Sample Recorder! (v0.5)\n",
+            introLabel = tk.Label(self.infoframe, text="\nWelcome to Pillow's Simple Sample Recorder! (v0.7)\n",
                                   font='Helvetica 16 bold underline')
             introLabel.pack(side='top', fill='x')
 

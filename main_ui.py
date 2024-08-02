@@ -40,7 +40,7 @@ mpl.use('TkAgg')
 
 """This should really be its own script but for now it can stay here"""
 class MainEditor ():
-    def __init__ (self, rec_set, binds, open_immeditately = []):
+    def __init__ (self, rec_set, binds, open_immeditately = [], root=''):
         self.p = pyaudio.PyAudio()
         self.rec_args = rec_set
         self.tabs = []
@@ -52,8 +52,11 @@ class MainEditor ():
         self.recording = False #are we recording audio right now?
         self.offFocus()
         
-        #main window
-        self.root = tk.Tk()
+        #main window; can be passes the root of the startUI to keep things within one window
+        if root != '':
+            self.root = root
+        else:
+            self.root = tk.Tk()
         self.root.geometry("750x300")
         self.root.title(f"Editor")
         self.root.configure(bg='white', padx=10, pady=10)
@@ -114,7 +117,8 @@ class MainEditor ():
         if True:
             self.tabs[self.getActive()].onFocus()
         else: self.root.wm_state('iconic') #is starting as minimised worth? make this a setting
-
+        self.setLoop() #i think looping is fun and therefore it's nice to have it on by default
+        
         self.root.mainloop()
 
     def menuInit (self):

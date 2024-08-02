@@ -68,7 +68,8 @@ class EditorWindow ():
         self.open = False #is this window currently open?
         self.saved = False #has this recording been saved at all? if not, call dialogue box on attempted closure
         self.closing = False #used to signify to the main ui that this window is being closed
-
+        self.loop_rects = []
+        
         #aud canvas and scroll wheel
         self.root = root
         self.canvFrame = tk.Frame(self.root)
@@ -232,20 +233,24 @@ class EditorWindow ():
 
     #draw a funky red box between the current start and end positions
     def draw_play_region (self):
-        try:
-            for r in self.loop_rects:
-                r.remove()
-        except: pass
 
-        #need to draw the box in every subplot (channel)
-        self.loop_rects = []
-        for a in self.ax:
-            _, __, ymin, ymax = a.axis()
-            r = patches.Rectangle((self.start, ymin + 250), self.end - self.start, ((ymax - 500) - (ymin + 500)),
-                                  linewidth=1.5, edgecolor='r', facecolor='r', zorder = 10, alpha=0.5)
-            a.add_patch(r)
-            self.loop_rects.append(r)
-        self.canvas.draw()
+        #if we haven't drawn the region yet, we need to create new rectangle patches
+        if len(self.loop_rects) == 0:
+            for a in self.ax:
+                _, __, ymin, ymax = a.axis()
+                r = patches.Rectangle((self.start, ymin + 250), self.end - self.start, ((ymax - 500) - (ymin + 500)),
+                                      linewidth=1.5, edgecolor='r', facecolor='r', zorder = 10, alpha=0.5)
+                a.add_patch(r)
+                self.loop_rects.append(r)
+
+        #otherwise, we can simply update the position and width of the patches we already have!
+        else:
+            for r in self.loop_rects:
+                r.set_x( self.start )
+                r.set_width( self.end - self.start )
+
+        if not self.isPlaying:
+            self.canvas.draw()
 
     """if no audio is playing, start up the main playing process as a thread
        this needs to be done to keep the tk mainloop running smoothly."""
@@ -286,11 +291,13 @@ class EditorWindow ():
         looper = self.loop
         while looper or play:
             play=False
-            for c in range(self.start * chans, self.end * chans, CHUNK):
+            c = self.start * chans
+            while c >= self.start * chans and c < self.end * chans:
                 data = self.t_signal[c: c+CHUNK].tobytes()
                 stream.write(data)
                 self.cpos = c
                 looper = self.loop
+                c += CHUNK
                 if not self.isPlaying:
                     print('uh oh it is time to stop the recording')
                     looper = False
