@@ -96,6 +96,15 @@ class MainEditor ():
         self.saveRecBut.pack(side='top', fill = 'x')
         self.saveRecBut['state'] = 'disabled'
 
+        tk.Label(self.editFrame,pady=0, text='', bg='#c9c9c9').pack(side='top') #padding
+        ampFrame = tk.Frame(self.editFrame, bg='#c9c9c9')
+        ampFrame.pack(side='top', fill='x')
+        ampText = tk.Label(ampFrame, text='Amplitude:', bg='#c9c9c9')
+        ampText.pack(side='left')
+        self.ampScale = tk.Scale(ampFrame, from_=-30, to=10, orient='horizontal', bg='#c9c9c9', bd=2, highlightthickness=0,
+                                 command = partial(self.setAmp, ampText), showvalue = 0, troughcolor='#a9a9a9')
+        self.ampScale.pack(side='right', fill='x')
+
         closeButton = tk.Button(self.editFrame, height = 1, text='Close Current Recording',
                                  command=self.closeRecording)
         closeButton.pack(side='bottom', fill = 'x')
@@ -298,6 +307,17 @@ class MainEditor ():
                 self.tabs[self.getActive()].onFocus()
                 self.clip_queue = []
                 self.root.update_idletasks()
+
+    def setAmp (self, text, _=''):
+        db = self.ampScale.get()
+        newlabel = ''
+        if db < 0: newlabel = f'Amplitude: ({db} dB)'
+        else: newlabel = f'Amplitude: (+{db} dB)' #db is logarithmic; should research how to add amp!
+        text.config(text = newlabel)
+
+        #update amplitude in each frame
+        for f in self.tabs:
+            f.amp = (10 ** (db/20)) #formula from https://blog.demofox.org/2015/04/14/decibels-db-and-amplitude/
 
     def exportSelection (self):
         data = self.tabs[self.getActive()].saveSelection()

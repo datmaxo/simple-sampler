@@ -111,7 +111,7 @@ class startUI:
         with open("data/intro-text.txt", "r+") as info:
             text = info.read()
 
-            introLabel = tk.Label(self.infoframe, text="\nWelcome to Pillow's Simple Sample Recorder! (v0.7)\n",
+            introLabel = tk.Label(self.infoframe, text="\nWelcome to Pillow's Simple Sample Recorder! (v0.8)\n",
                                   font='Helvetica 16 bold underline')
             introLabel.pack(side='top', fill='x')
 

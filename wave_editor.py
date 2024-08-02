@@ -68,6 +68,7 @@ class EditorWindow ():
         self.open = False #is this window currently open?
         self.saved = False #has this recording been saved at all? if not, call dialogue box on attempted closure
         self.closing = False #used to signify to the main ui that this window is being closed
+        self.amp = 1.0 #extra amplitude to multiply current sample by; set by slider in main_ui
         self.loop_rects = []
         
         #aud canvas and scroll wheel
@@ -293,7 +294,7 @@ class EditorWindow ():
             play=False
             c = self.start * chans
             while c >= self.start * chans and c < self.end * chans:
-                data = self.t_signal[c: c+CHUNK].tobytes()
+                data = (self.t_signal[c: c+CHUNK] * self.amp).astype(type(self.t_signal[0])).tobytes()
                 stream.write(data)
                 self.cpos = c
                 looper = self.loop
