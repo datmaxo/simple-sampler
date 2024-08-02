@@ -15,10 +15,13 @@ Happy recording :)
 CHANGE-LOG:
 
 V0.7:
+ - added default screen in editor for when no recordings are loaded
  - playback responds to changes in play region when looping
  - starting screen boots directly into main program; not a different window
  - bug fixes:
    * fixed visual issues when updating play region during playback
+  
+DEV NOTE: Seems to be some issues with loaded recording destroying loop boxes
 
 V0.6:
  - overhauled recording process:

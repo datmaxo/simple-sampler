@@ -50,6 +50,7 @@ class MainEditor ():
         self.focused = True
         self.loop = False
         self.recording = False #are we recording audio right now?
+        self.empty = (len(open_immeditately) == 0) #do we have any recordings open right now?
         self.offFocus()
         
         #main window; can be passes the root of the startUI to keep things within one window
@@ -103,8 +104,9 @@ class MainEditor ():
                                  command=self.openSettings)
         setButton.pack(side='bottom', fill = 'x')
 
-        #buttons that are disabled when the module is recording
-        self.buttonsToDisable = [playButton, stopButton, closeButton, exportButton, setButton]
+        #buttons that are disabled when various conditions are met (recording, no recordings loaded)
+        self.buttonsToDisable = {'Rec':[playButton, stopButton, closeButton, exportButton, setButton],
+                                 'Empty': [playButton, stopButton, closeButton, exportButton]}
 
         for x in open_immeditately: self.addClip(x)
         keyboard.add_hotkey(binds['save'], self.save_recording)
@@ -114,9 +116,11 @@ class MainEditor ():
         self.root.bind("<FocusIn>", self.onFocus)
         self.root.bind("<FocusOut>", self.offFocus)
 
-        if True:
+        #if we have no recordings pre-loaded, create an empty tab with some default 'no recordings loaded :(' text
+        if self.empty:
+            self.createEmptyTab()
+        else:
             self.tabs[self.getActive()].onFocus()
-        else: self.root.wm_state('iconic') #is starting as minimised worth? make this a setting
         self.setLoop() #i think looping is fun and therefore it's nice to have it on by default
         
         self.root.mainloop()
@@ -134,6 +138,23 @@ class MainEditor ():
     #get the active notebook tab
     def getActive (self):
         return self.tabControl.index(self.tabControl.select())
+
+    def createEmptyTab (self):
+        self.empty = True
+        self.setButtonsState('disabled', 'Rec')
+
+        self.emptyFrame = ttk.Frame(self.tabControl)
+        self.emptyFrame.pack()
+        text = tk.Label(self.emptyFrame, text="\n\n\n\n\nNo recordings loaded :(\n\nPress the 'Rec' button to get started!")
+        text.pack()
+
+        self.tabControl.add(self.emptyFrame, text = ' ')
+
+    def destroyEmptyTab (self):
+        if self.empty:
+            self.empty = False
+            self.emptyFrame.destroy()
+            if not self.recording: self.setButtonsState('normal', 'Empty')
 
     #opens the settings module as a toplevel tk window
     def openSettings (self):
@@ -178,6 +199,11 @@ class MainEditor ():
         try: self.kbWin.destroy()
         except: print('No keybinds window to destroy!')
 
+    #set a predetermined group of buttons to a specific state
+    def setButtonsState(self, state, condition):
+        for b in self.buttonsToDisable[condition]:
+            b['state'] = state
+
     def exit (self):
         #something something
         self.root.destroy()
@@ -196,13 +222,15 @@ class MainEditor ():
         self.tab_frames.append(ttk.Frame(self.tabControl))
         self.tabControl.add(self.tab_frames[-1], text = f'untitled ({self.recording_num}).wav')
         self.tabs.append(EditorWindow(self.tab_frames[-1], path, self.rec_args, self.fig, self.ax))
+        if self.empty:
+            self.destroyEmptyTab()
 
     #should set 'playable' flag in other threads to prevent overwhemling the buffer
     def play (self, _=''):
         self.tabs[self.getActive()].start_play_thread()
 
     def stop (self, _=''):
-        self.tabs[self.getActive()].stop()
+        if not self.empty: self.tabs[self.getActive()].stop()
 
     def setLoop (self, _=''):
         self.loop = not self.loop
@@ -222,7 +250,7 @@ class MainEditor ():
             self.stop()
             self.recButton.configure(relief='sunken')
             self.saveRecBut['state'] = 'normal'
-            for b in self.buttonsToDisable: b['state'] = 'disabled'
+            self.setButtonsState('disabled', 'Rec')
 
             self.recorder = Recorder(self.rec_args)
             if self.rec_args["MINIMIZE_ON_RECORD"]:
@@ -231,14 +259,16 @@ class MainEditor ():
         else:
             self.recButton.configure(relief='raised')
             self.saveRecBut['state'] = 'disabled'
-            for b in self.buttonsToDisable: b['state'] = 'normal'
-
+            self.setButtonsState('normal', 'Rec')
             try: self.recorder.stop = True
             except: print("Couldn't stop recording - no recorder loaded :(")
             for x in self.clip_queue: self.addClip(x)
-            self.tabs[self.getActive()].onFocus()
-            self.clip_queue = []
-            self.root.update_idletasks()
+
+            if self.empty: self.setButtonsState('disabled', 'Empty')
+            else:
+                self.tabs[self.getActive()].onFocus()
+                self.clip_queue = []
+                self.root.update_idletasks()
 
     def exportSelection (self):
         data = self.tabs[self.getActive()].saveSelection()
@@ -264,7 +294,7 @@ class MainEditor ():
         try:
             if self.tabs[i].closing: self.tabs.pop(i)
         except: self.tabs.pop(i)
-        if self.tabs == []: print('all tabs are gone!')
+        if self.tabs == []: self.createEmptyTab()
 
     #called on maximising; ends recording, draws newly recorded files
     def onFocus (self, _=''):
