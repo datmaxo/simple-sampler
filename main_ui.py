@@ -117,6 +117,7 @@ class MainEditor ():
         self.root.bind("<space>", self.play)
         self.root.bind("<FocusIn>", self.onFocus)
         self.root.bind("<FocusOut>", self.offFocus)
+        self.root.protocol("WM_DELETE_WINDOW", self.exit)
 
         #if we have no recordings pre-loaded, create an empty tab with some default 'no recordings loaded :(' text
         if self.empty:
@@ -207,10 +208,20 @@ class MainEditor ():
         for b in self.buttonsToDisable[condition]:
             b['state'] = state
 
+    #quitting procedure for window closure; throws a message box if there are unsaved recordings
     def exit (self):
-        #something something
-        self.root.destroy()
-        exit()
+        unsaved = False
+        msgOut = ''
+
+        for f in self.tabs:
+            if not f.saved: unsaved = True
+        if unsaved and self.rec_args['USE_MESSAGE_BOXES']:
+            msgOut = tk.messagebox.Message(message='You have unsaved recordings - do you really wish to quit?', type='yesno').show()
+            
+        if not unsaved or msgOut.lower() == 'yes':
+            self.clearTempFiles()
+            self.root.destroy()
+            exit()
 
     """w/ this structure I won't ever need to save temp files; i can just pass the recorded aud to the editor
        I think i'm going to keep doing it just for backup reasons tho"""
