@@ -361,12 +361,6 @@ class EditorWindow ():
         self.stop()
         self.closeWave()
 
-        #destroy loop region (for now)
-        try:
-            for r in self.loop_rects:
-                r.remove()
-        except: pass
-
     #TODO - add option to ignore message boxes of all descriptions?
     def destroyEditor (self, _=''):
         kill = self.saved

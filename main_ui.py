@@ -15,6 +15,8 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
 from functools import partial
+import os
+import shutil
 import keyboard
 import pyaudiowpatch as pyaudio #allows WASAPI
 import numpy as np
@@ -122,6 +124,7 @@ class MainEditor ():
         else:
             self.tabs[self.getActive()].onFocus()
         self.setLoop() #i think looping is fun and therefore it's nice to have it on by default
+        self.clearTempFiles()
         
         self.root.mainloop()
 
@@ -217,6 +220,21 @@ class MainEditor ():
         if out != None:
             self.addClip(out)
         print('Recording saved.')
+
+    #clears the contents of the tmp folder
+    #shout-out to https://stackoverflow.com/questions/185936/how-to-delete-the-contents-of-a-folder
+    def clearTempFiles (self):
+        path = os.path.realpath(os.path.dirname(__file__)) + '\\tmp'
+        for filename in os.listdir(path):
+            print(filename)
+            file_path = os.path.join(path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
 
     def addClip (self, path):
         self.tab_frames.append(ttk.Frame(self.tabControl))
@@ -342,4 +360,4 @@ if __name__ == '__main__':
 
     binds = {'save': 'ctrl+alt+s', 'exit': 'ctrl+alt+e'}
 
-    widnow = MainEditor(rec_args, binds, ['tmp/output(1).wav'])
+    widnow = MainEditor(rec_args, binds, ['data/default.wav'])
