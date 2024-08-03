@@ -259,7 +259,7 @@ class MainEditor ():
     def addClip (self, path):
         self.tab_frames.append(ttk.Frame(self.tabControl))
         self.tabControl.add(self.tab_frames[-1], text = f'untitled ({self.recording_num}).wav')
-        self.tabs.append(EditorWindow(self.tab_frames[-1], path, self.rec_args, self.fig, self.ax))
+        self.tabs.append(EditorWindow(self.tab_frames[-1], path, self.rec_args, self.fig, self.ax, onFocusFuncs=[self.getAmp]))
         if self.empty:
             self.destroyEmptyTab()
 
@@ -308,6 +308,7 @@ class MainEditor ():
                 self.clip_queue = []
                 self.root.update_idletasks()
 
+    #update the amplitude scale label, and set the amp in the current recording
     def setAmp (self, text, _=''):
         db = self.ampScale.get()
         newlabel = ''
@@ -315,9 +316,13 @@ class MainEditor ():
         else: newlabel = f'Amplitude: (+{db} dB)' #db is logarithmic; should research how to add amp!
         text.config(text = newlabel)
 
-        #update amplitude in each frame
-        for f in self.tabs:
-            f.amp = (10 ** (db/20)) #formula from https://blog.demofox.org/2015/04/14/decibels-db-and-amplitude/
+        #update amplitude in the current frame
+        self.tabs[self.getActive()].set_amp(10 ** (db/20))
+
+    #set the amp scale to the value in the current recording; set() triggers setAmp callback
+    def getAmp (self, _=''):
+        dB = 20 * np.log10(self.tabs[self.getActive()].amp)
+        self.ampScale.set(dB)
 
     def exportSelection (self):
         data = self.tabs[self.getActive()].saveSelection()
@@ -347,7 +352,7 @@ class MainEditor ():
 
     #called on maximising; ends recording, draws newly recorded files
     def onFocus (self, _=''):
-        pass
+        
         """
         if not self.focused:
             self.focused = True
@@ -391,4 +396,4 @@ if __name__ == '__main__':
 
     binds = {'save': 'ctrl+alt+s', 'exit': 'ctrl+alt+e'}
 
-    widnow = MainEditor(rec_args, binds, ['data/default.wav'])
+    widnow = MainEditor(rec_args, binds, ['data/default.wav', 'data/default.wav'])

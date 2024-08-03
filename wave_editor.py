@@ -3,10 +3,9 @@ I feel that it may be the silliest decision ever to use matplotlib as the core r
 but also, it works! and it doesn't even look all that horrible?
 could obvs be better but for a simple editor it should do the trick :)
 
-Ran into resource issues when individual editor windows are ran on their own threads.
-New idea; EditorWindows are hosted via the MainEditor window on the main thread -
-          passive recorder is the threaded process.
-
+There's been a fair bit of effort put into how this script should communicate with main_ui, but I feel like i've
+completely overlooked the simplest option; passing each wave_editor the main UI instance.
+Everythings works fine for now, but I'd like to go back and simplify instances where this could have made for simpler code.
 """
 
 import tkinter as tk
@@ -40,7 +39,7 @@ def toNearest (num, nearest):
     return nearest * round(num / nearest)
 
 class EditorWindow ():
-    def __init__ (self, root, audio, rec_set, fig, ax):
+    def __init__ (self, root, audio, rec_set, fig, ax, onFocusFuncs = []):
         self.fig = fig
         self.ax = ax
         self.p = pyaudio.PyAudio()
@@ -70,6 +69,7 @@ class EditorWindow ():
         self.closing = False #used to signify to the main ui that this window is being closed
         self.amp = 1.0 #extra amplitude to multiply current sample by; set by slider in main_ui
         self.loop_rects = []
+        self.onFocusFuncs = onFocusFuncs #an array of functions to call when brought into focus, just for fun :)
         
         #aud canvas and scroll wheel
         self.root = root
@@ -127,8 +127,8 @@ class EditorWindow ():
                 for art in list(a.lines):
                     art.remove()
                     
-            self.ax[0].plot(self.channel_signal[0], color='blue')
-            self.ax[1].plot(self.channel_signal[1], color='blue')
+            self.ax[0].plot(self.channel_signal[0] * self.amp, color='blue')
+            self.ax[1].plot(self.channel_signal[1] * self.amp, color='blue')
             print('okay')
 
             if not self.drawn:
@@ -159,6 +159,20 @@ class EditorWindow ():
             self.drawn = True
 
         self.draw_play_region()
+
+    #scale the drawn waveform by some value (most likely amplitude but we like keeping things general here)
+    #essentially just a slightly more efficient version of drawWaveform, as we don't clear the old drawings here
+    #checking for if the canvas is playing (& therefore regularly updating due to draw_play_pos) keeps visuals smooth too :)
+    def scaleWaveform (self, scalar):
+        if self.drawn:
+            i = 0
+            for a in self.ax:
+                for art in list(a.lines):
+                    art.set_ydata(self.channel_signal[0] * scalar)
+                i += 1
+            if not self.isPlaying: self.canvas.draw()
+        else:
+            print('Canvas has not been drawn, cannot scale.')
 
     # update the mouse position variable when it's over the audio canvas
     def mouse_move(self, event):
@@ -231,6 +245,11 @@ class EditorWindow ():
         self.end = toNearest( int(self.mousex), self.rec_args['CHUNK'] )
         if self.end <= self.start: self.end = self.start + 4
         self.draw_play_region()
+
+    #set the amplitude and rescale the silly graph - might be very inefficient
+    def set_amp (self, amp):
+        self.amp = amp
+        self.scaleWaveform(amp)
 
     #draw a funky red box between the current start and end positions
     def draw_play_region (self):
@@ -334,7 +353,8 @@ class EditorWindow ():
 
     def saveSelection (self):
         self.saved = True
-        return self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']].tobytes()
+        data = self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']]
+        return (data * self.amp).astype(type(self.t_signal[0])).tobytes()
 
     def stop (self):
         self.isPlaying = False
@@ -354,13 +374,18 @@ class EditorWindow ():
         if not self.open:
             self.open = True
             self.openWave(self.aud_path)
+            for r in self.loop_rects:
+                r.set(visible = True)
             self.drawWaveform(self.canvFrame)
+            for f in self.onFocusFuncs: f() #run specified funcs; for now, just used to set amplitude value in main_ui
 
     #when the editor window is closed, stop the track eugine!
     def offFocus (self, _=''):
         self.open = False
         self.stop()
         self.closeWave()
+        for r in self.loop_rects:
+            r.set(visible = False)
 
     #TODO - add option to ignore message boxes of all descriptions?
     def destroyEditor (self, _=''):
