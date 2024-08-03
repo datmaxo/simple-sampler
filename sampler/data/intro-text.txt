@@ -1,0 +1,83 @@
+Hello!
+
+This is a small app I made to help record my PC's audio, for the purpose of quickly & passively
+gathering samples and clips, editing them down, and exporting them.
+
+While this was initially designed to act as a background process, a simple UI can optionally be 
+used whilst recording for ease of operation.
+Please check the other tabs to familiarise yourself with the controls, and select your recording 
+options. When you're ready you can press the button below (or 'return') to start!
+
+Happy recording :)
+
+======================================================================
+
+CHANGE-LOG:
+
+V1.0:
+ - restructured program's file system
+ - finally executable as a .exe without dependencies :)
+ - known issue with clearing temporary files
+
+V0.9:
+ - added a reverse button!
+   * reverses the current selection of audio
+   * cannot reverse during playback
+ - known issues:
+   * reverse button may not enable after recording ends; press 'stop' to fix
+
+V0.8:
+ - added an amplitude slider!
+   * alter the loudness of each recording independently
+   * saved sounds will be exported with current amplitude
+   * bounds of slider can be edited in settings 
+ - added scroll bar to settings menu
+ - bug fixes:
+   * fixed play region visual issues when multiple recordings are open
+
+V0.7:
+ - added default screen in editor for when no recordings are loaded
+ - playback responds to changes in play region when looping
+ - starting screen boots directly into main program; not a different window
+ - added a royalty-free default sound (for testing purposes)
+ - bug fixes:
+   * fixed visual issues when updating play region during playback
+   * fixed play region being destroyed upon minimising the application
+
+V0.6:
+ - overhauled recording process:
+   * press the record button on the main window to begin recording
+   * use the 'save last n seconds' button or shortcut to save a recording
+ - recordings can be closed via the main editor 
+ - added new setting to disable pop-up message boxes, such as save warnings
+ - bug fixes:
+   * fixed selection not updating between tabs
+   * fixed saving settings with boolean values
+ - known issues:
+   * selections can visually overlap in rare circumstances
+   * altering the play region during playback can cause visual issues
+
+V0.5:
+ - audio can finally be exported!
+   * if a region is selected, this clip will be exported instead
+ - added looping, for playing a region continously until manual stop
+ - introduced settings window:
+   * can be used to alter recording time, sample rate, etc
+   * can be altered in welcome page or in main recording window
+ - keybind settings can now be edited during recording
+ - updated visual of selected portion of recording
+ - fixed major memory leak when going back and forth between recording tabs 
+   * recordings may take longer to visualise as a result; aiming to improve quickly
+   * known bug with displaying incorrect recording selections between tabs
+
+V0.4:
+ - introduced editor window:
+   * view recorded wave-forms with scroll and zoom controls
+   * set the start & end points with the mouse
+   * play the selected section of the recording
+ - reworked passive recorder script
+
+V0.3:
+ - redesigned UI, implemented welcome page
+ - implemented ability to change keybinds for key operations
+ - added an quit function to cease passive recording

@@ -1,0 +1,1 @@
+pyinstaller -F --add-data sampler/data:data --add-data sampler/tmp:tmp simplesampler.pyw
