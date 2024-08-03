@@ -44,14 +44,18 @@ class SettingsWin:
                               font='Helvetica 8', padx=5, pady=5, justify='center')
         note.pack(side='top', fill='x')
 
-        self.setframe = tk.Frame(baseframe, bg='#c9c9c9', relief='ridge', borderwidth=2,
-                                 padx = 5, pady= 5)
-        self.setframe.pack(side='top', fill='both', expand=True)
+        scrollZone = tk.Frame(baseframe, bd=2, relief='ridge')
+        scrollZone.pack(side='top', fill='x')
+
+        self.setframe = tk.Canvas(scrollZone, bg='#c9c9c9', highlightthickness=0)
+        self.setframe.pack(side='left', fill='x', expand=True)
+        scroll = tk.Scrollbar(scrollZone, command=self.setframe.yview, bg='grey', relief='ridge', borderwidth=2)
+        scroll.pack(side='right', fill='y')
 
         self.settings_inputs = {}
+        i = 10
         for key in self.args.keys():
             actionframe = tk.Frame(self.setframe, bg='#c9c9c9')
-            actionframe.pack(side='top', anchor="nw")
             
             text = tk.Label(actionframe, text=f'{key.upper()} :',  bg='#c9c9c9')
             text.pack(side='left')
@@ -70,8 +74,10 @@ class SettingsWin:
                 e.insert(0, self.args[key])
             self.settings_inputs[key] = e
 
-            gap = tk.Frame(self.setframe, height = 5, bg='#c9c9c9')
-            gap.pack(side='top')
+            self.setframe.create_window(10,i,window=actionframe, anchor='nw')
+            i+=25
+
+        self.setframe.configure(yscrollcommand=scroll.set, height=150, scrollregion=(0,0,0,(len(self.args) + 1) * 25))
 
         bgap = tk.Frame(baseframe, height = 5)
         bgap.pack(side='top')
@@ -87,6 +93,7 @@ class SettingsWin:
             try:
                 if type(self.args[k]) == str: val = str(val) #pointless 
                 elif type(self.args[k]) == int: val = int(val)
+                elif type(self.args[k]) == float: val = float(val)
                 elif type(self.args[k]) == bool: val = bool(val)
                 else: val = self.args[k] #in the event of no args, just be default
             except: val = self.args[k]

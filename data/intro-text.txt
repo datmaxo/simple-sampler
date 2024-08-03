@@ -18,7 +18,8 @@ V0.8:
  - added an amplitude slider!
    * alter the loudness of each recording independently
    * saved sounds will be exported with current amplitude
-   * (TODO) : bounds of slider can be edited in settings 
+   * bounds of slider can be edited in settings 
+ - added scroll bar to settings menu
  - bug fixes:
    * fixed play region visual issues when multiple recordings are open
 

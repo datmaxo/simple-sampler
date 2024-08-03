@@ -28,7 +28,9 @@ class startUI:
         'RATE':48000,
         'CHANNELS': 1 if sys.platform == 'darwin' else 2,
         'RECORD_SECONDS': 10,
-        'MINIMIZE_ON_RECORD': False}
+        'MINIMIZE_ON_RECORD': False,
+        "USE_MESSAGE_BOXES": True,
+        "MIN_AMP": -30, "MAX_AMP": 10, "AMP_RESOLUTION": 1}
         try:
             with open('data/settings.json', 'r+') as argfile:
                 kb = argfile.read()

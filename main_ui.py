@@ -101,8 +101,10 @@ class MainEditor ():
         ampFrame.pack(side='top', fill='x')
         ampText = tk.Label(ampFrame, text='Amplitude:', bg='#c9c9c9')
         ampText.pack(side='left')
-        self.ampScale = tk.Scale(ampFrame, from_=-30, to=10, orient='horizontal', bg='#c9c9c9', bd=2, highlightthickness=0,
-                                 command = partial(self.setAmp, ampText), showvalue = 0, troughcolor='#a9a9a9')
+        self.ampScale = tk.Scale(ampFrame, orient='horizontal', bg='#c9c9c9', bd=2, highlightthickness=0,
+                                 command = partial(self.setAmp, ampText), showvalue = 0, troughcolor='#a9a9a9',
+                                 from_=self.rec_args['MIN_AMP'], to=self.rec_args['MAX_AMP'],
+                                 resolution = self.rec_args['AMP_RESOLUTION'] )
         self.ampScale.pack(side='right', fill='x')
 
         closeButton = tk.Button(self.editFrame, height = 1, text='Close Current Recording',
@@ -195,6 +197,9 @@ class MainEditor ():
         try:
             for tab in self.tabs:
                 tab.updateSettings({'USE_MESSAGE_BOXES': newsettings['USE_MESSAGE_BOXES']})
+                
+            self.ampScale.config(from_=self.rec_args['MIN_AMP'], to=self.rec_args['MAX_AMP'],
+                                 resolution = self.rec_args['AMP_RESOLUTION'] )
         except Exception as e:
             print(f'Specified setting was not found: {e}')
 
@@ -384,7 +389,9 @@ if __name__ == '__main__':
         'RATE':48000,
         'CHANNELS': 1 if sys.platform == 'darwin' else 2,
         'RECORD_SECONDS': 10,
-        'MINIMIZE_ON_RECORD': False
+        'MINIMIZE_ON_RECORD': False,
+        "USE_MESSAGE_BOXES": True,
+        "MIN_AMP": -30, "MAX_AMP": 10, "AMP_RESOLUTION": 1.0
     }
     try:
         with open('data/settings.json', 'r+') as argfile:

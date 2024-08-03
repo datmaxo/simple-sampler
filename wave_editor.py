@@ -69,6 +69,7 @@ class EditorWindow ():
         self.closing = False #used to signify to the main ui that this window is being closed
         self.amp = 1.0 #extra amplitude to multiply current sample by; set by slider in main_ui
         self.loop_rects = []
+        self.playlines = []
         self.onFocusFuncs = onFocusFuncs #an array of functions to call when brought into focus, just for fun :)
         
         #aud canvas and scroll wheel
@@ -330,26 +331,30 @@ class EditorWindow ():
         uses a fair bit of CPU to move smoothy; adjust sleep time to balance performance/resources """
     def draw_play_pos (self):
         #create the cursor(s) in all channel axes
-        playlines = []
+        self.playlines = []
         for a in self.ax:
             _, __, ymin, ymax = a.axis()
             p = patches.Rectangle((self.start, ymin + 250), 1, (ymax - ymin) - 500, linewidth=1.5,
                                   edgecolor='black', facecolor='none', zorder = 15)
             a.add_patch(p)
-            playlines.append(p)
+            self.playlines.append(p)
         self.canvas.draw()
 
         #while the clip is playing, update the cursor positioon every so often
         while self.cpos < self.end * self.rec_args['CHANNELS']:
-            for p in playlines:
+            for p in self.playlines:
                 p.set_x(self.cpos // self.rec_args['CHANNELS'])
             self.canvas.draw()
             sleep(0.05)
 
         #destroy the cursors
-        for p in playlines:
-            p.remove()
+        self.removePlayCursor()
         self.canvas.draw()
+
+    def removePlayCursor (self):
+        for p in self.playlines:
+            p.remove()
+        self.playlines = []
 
     def saveSelection (self):
         self.saved = True
@@ -358,6 +363,7 @@ class EditorWindow ():
 
     def stop (self):
         self.isPlaying = False
+        self.removePlayCursor()
 
     def setLoop (self, loop):
         self.loop = loop
