@@ -107,6 +107,10 @@ class MainEditor ():
                                  resolution = self.rec_args['AMP_RESOLUTION'] )
         self.ampScale.pack(side='right', fill='x')
 
+        revBut = tk.Button(self.editFrame, height = 1, text=f"Reverse Selection",
+                                 command=self.reverseSelection)
+        revBut.pack(side='top', fill = 'x')
+
         closeButton = tk.Button(self.editFrame, height = 1, text='Close Current Recording',
                                  command=self.closeRecording)
         closeButton.pack(side='bottom', fill = 'x')
@@ -118,8 +122,9 @@ class MainEditor ():
         setButton.pack(side='bottom', fill = 'x')
 
         #buttons that are disabled when various conditions are met (recording, no recordings loaded)
-        self.buttonsToDisable = {'Rec':[playButton, stopButton, closeButton, exportButton, setButton],
-                                 'Empty': [playButton, stopButton, closeButton, exportButton]}
+        self.buttonsToDisable = {'Rec':[playButton, stopButton, closeButton, exportButton, setButton, revBut],
+                                 'Empty': [playButton, stopButton, closeButton, exportButton, revBut],
+                                 'Play': [revBut]}
 
         for x in open_immeditately: self.addClip(x)
         keyboard.add_hotkey(binds['save'], self.save_recording)
@@ -271,9 +276,12 @@ class MainEditor ():
     #should set 'playable' flag in other threads to prevent overwhemling the buffer
     def play (self, _=''):
         self.tabs[self.getActive()].start_play_thread()
+        self.setButtonsState('disabled', 'Play')
 
     def stop (self, _=''):
-        if not self.empty: self.tabs[self.getActive()].stop()
+        if not self.empty:
+            self.tabs[self.getActive()].stop()
+            self.setButtonsState('normal', 'Play')
 
     def setLoop (self, _=''):
         self.loop = not self.loop
@@ -329,6 +337,9 @@ class MainEditor ():
         dB = 20 * np.log10(self.tabs[self.getActive()].amp)
         self.ampScale.set(dB)
 
+    def reverseSelection (self, _=''):
+        self.tabs[self.getActive()].reverseSelection()
+
     def exportSelection (self):
         data = self.tabs[self.getActive()].saveSelection()
         name = fd.asksaveasfilename(defaultextension=".wav", filetypes=[("Wave Files", ".wav")])
@@ -354,6 +365,7 @@ class MainEditor ():
             if self.tabs[i].closing: self.tabs.pop(i)
         except: self.tabs.pop(i)
         if self.tabs == []: self.createEmptyTab()
+        else: self.tabs[self.getActive()].onFocus()
 
     #called on maximising; ends recording, draws newly recorded files
     def onFocus (self, _=''):

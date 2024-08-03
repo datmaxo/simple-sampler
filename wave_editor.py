@@ -91,7 +91,7 @@ class EditorWindow ():
         if len(self.t_signal) < 1:
             with wave.open(file, "r") as aud_file:
                 self.t_signal = aud_file.readframes(-1)
-                self.t_signal = np.frombuffer(self.t_signal, np.int16)
+                self.t_signal = np.fromstring(self.t_signal, np.int16)
                 self.channel_signal = self.readWave()
 
     #split the loaded wave file into the correct number of channels
@@ -367,6 +367,14 @@ class EditorWindow ():
 
     def setLoop (self, loop):
         self.loop = loop
+
+    #reverses the selected portion of the recording
+    #currently has visual issues whilst playing, but always seemingly works fine
+    def reverseSelection (self, _=''):
+        clip = self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']]
+        self.t_signal[self.start * self.rec_args['CHANNELS'] : self.end * self.rec_args['CHANNELS']] = np.flipud(clip)
+        self.channel_signal = self.readWave()
+        if not self.isPlaying: self.drawWaveform(self.canvFrame)
 
     """
     These two onFocus, offFocus funcitons were designed to help reduce memory load that comes

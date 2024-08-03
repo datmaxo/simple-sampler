@@ -14,6 +14,13 @@ Happy recording :)
 
 CHANGE-LOG:
 
+V0.9:
+ - added a reverse button!
+   * reverses the current selection of audio
+   * cannot reverse during playback
+ - known issues:
+   * reverse button may not enable after recording ends; press 'stop' to fix
+
 V0.8:
  - added an amplitude slider!
    * alter the loudness of each recording independently
