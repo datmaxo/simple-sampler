@@ -24,7 +24,7 @@ To rebuild `simplesampler.exe`, simply run `build.sh` from the main directory. B
 
 ### Planned Updates:
 
-At this point, I've added most of the major functionality that I want to for this appliacation.
+At this point, I've added most of the major functionality that I want to for this application.
 There are a few issues with the code I may refactor down the line, and I'm not fully satisfied with the speed of some operations right now, so I may work to improve those.
 
 Additionally, while matplotlib works fine for the audio-visualisation backend, I don't think it's been the most efficient choice of graphics library.
