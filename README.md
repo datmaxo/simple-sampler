@@ -1,7 +1,7 @@
 # simple-sampler
 A simple app that stores the last 10 seconds of computer audio via WASAPI, and saves the recording on a keypress. 
 Designed to make gathering music samples from the internet easy.
-
+ 
 ---
 
 ### How to use:
